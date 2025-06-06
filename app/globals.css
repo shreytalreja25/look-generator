@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+  
+  body {
+    @apply bg-notion-page-bg text-notion-text-secondary;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  /* Notion-style scrollbars */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+  }
+}
+
+@layer components {
+  /* Notion-style button components */
+  .btn-primary {
+    @apply bg-notion-blue text-white border-none py-sm px-lg rounded-notion-sm text-body-text font-medium hover:bg-opacity-90 transition-all duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-transparent text-notion-text-primary border border-notion-border py-sm px-lg rounded-notion-sm text-body-text hover:bg-notion-hover-bg transition-all duration-200;
+  }
+  
+  .btn-ghost {
+    @apply bg-transparent text-notion-text-secondary border-none py-sm px-sm rounded-notion-sm text-body-text hover:bg-notion-hover-bg transition-all duration-200;
+  }
+  
+  /* Notion-style input fields */
+  .input-field {
+    @apply border border-notion-border py-sm px-md rounded-notion-sm bg-notion-white text-body-text text-notion-text-primary;
+    @apply focus:border-notion-blue focus:ring-2 focus:ring-notion-blue focus:ring-opacity-10 focus:outline-none;
+  }
+  
+  /* Notion-style blocks */
+  .notion-block {
+    @apply bg-notion-block-bg border border-notion-border rounded-notion p-lg mb-xxl;
+  }
+  
+  .notion-card {
+    @apply bg-notion-white border border-notion-border rounded-notion p-xxl mb-lg;
+  }
+  
+  /* Notion-style lists */
+  .notion-list {
+    @apply list-none p-0;
+  }
+  
+  .notion-list-item {
+    @apply flex items-center py-xs text-body-text text-notion-text-secondary;
+  }
+  
+  .notion-list-item::before {
+    content: "•";
+    @apply text-notion-text-tertiary mr-md;
+  }
+} 
