@@ -20,7 +20,9 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "forceConsistentCasingInFileNames": true,
+    // "suppressImplicitAnyIndexErrors": true
   },
   "include": [
     "next-env.d.ts",

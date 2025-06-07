@@ -1,50 +1,169 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateVirtualTryOn, GenerationOptions } from '../../../lib/replicate'
+import sharp from 'sharp'
+import Replicate from 'replicate'
+import fetch from 'node-fetch'
+import { GoogleGenAI, createUserContent, createPartFromUri } from '@google/genai'
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
+const REPLICATE_API_KEY = process.env.REPLICATE_API_TOKEN || ''
+
+async function createGridLayoutFromBuffers(imageBuffers: Buffer[]): Promise<Buffer> {
+  const cellWidth = 512
+  const cellHeight = 512
+  const rows = 2, cols = 2
+
+  const preparedBuffers = await Promise.all(
+    imageBuffers.map(async (buf) => {
+      const img = sharp(buf)
+      const metadata = await img.metadata()
+      const scale = Math.min(cellWidth / (metadata.width || 1), cellHeight / (metadata.height || 1))
+      const newWidth = Math.round((metadata.width || 1) * scale)
+      const newHeight = Math.round((metadata.height || 1) * scale)
+      return await img
+        .resize({ width: newWidth, height: newHeight, fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
+        .toBuffer()
+    })
+  )
+
+  const compositeImages = []
+  let index = 0
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (index >= preparedBuffers.length) break
+      compositeImages.push({ input: preparedBuffers[index], top: y * cellHeight, left: x * cellWidth })
+      index++
+    }
+  }
+
+  const finalStitched = await sharp({
+    create: {
+      width: cols * cellWidth,
+      height: rows * cellHeight,
+      channels: 4,
+      background: { r: 255, g: 255, b: 255, alpha: 1 }
+    }
+  })
+    .composite(compositeImages)
+    .jpeg({ quality: 95 })
+    .toBuffer()
+
+  return finalStitched
+}
+
+async function analyzeWithGeminiBuffer(imageBuffer: Buffer) {
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY })
+  // Upload the buffer as a Blob
+  const file = await ai.files.upload({ file: new Blob([imageBuffer], { type: 'image/jpeg' }) })
+  const response = await ai.models.generateContent({
+    model: "gemini-2.0-flash",
+    contents: [
+      createUserContent([
+        `You are a professional fashion analyst AI.\n\nPlease analyze the attached stitched outfit layout image and identify each clothing item or accessory shown in the grid (top-left to bottom-right order). For each item, describe:\n\n- Type of item (e.g., sunglasses, shirt, jeans, sneakers)\n- Primary use or region of the body (e.g., torso, legs, face, feet)\n- Color and pattern\n- Material/fabric type (e.g., cotton, denim, synthetic, plastic)\n- Visible textures or design features (e.g., glossy plastic frame, printed logo, button-up front, elastic sole)\n- Fit and cut (e.g., slim fit, relaxed, flared)\n- Style association (e.g., casual, sporty, summer wear, streetwear, formal)\n- Gender relevance (e.g., unisex, male, female)\n\nThen, generate a structured JSON object describing:\n1. A model identity and appearance matching the outfit\n2. A high-quality prompt to generate the outfit on a realistic try-on model\n3. A breakdown of the outfit by items\n4. A suitable background style and setting\n5. Output requirements for realism\n\nFormat:\n\n{\n  "prompt": "AI generation description",\n  "model": {\n    "identity": "...",\n    "pose": "...",\n    "expression": "...",\n    "lighting": "..."\n  },\n  "garment": {\n    "items": [\n      {\n        "type": "...",\n        "location": "...",\n        "color": "...",\n        "material": "...",\n        "texture": "...",\n        "fit": "...",\n        "style": "...",\n        "gender": "..."\n      },\n      ...\n    ]\n  },\n  "background": {\n    "type": "...",\n    "style": "...",\n    "integration": "..."\n  },\n  "output_requirements": {\n    "preserve_model_lighting": true,\n    "blend_model_into_background": true,\n    "no_pose_change": true,\n    "no_outfit_change": true,\n    "realistic_shadows": "..."\n  }\n}\n\nFocus on intricate visual details, textures, and fashion categorization. Do not skip any accessory.`,
+        createPartFromUri(file.uri, file.mimeType),
+      ]),
+    ],
+  })
+  const jsonStart = response.text.indexOf('{')
+  const jsonEnd = response.text.lastIndexOf('}')
+  const jsonText = response.text.slice(jsonStart, jsonEnd + 1)
+  const parsed = JSON.parse(jsonText)
+  return parsed
+}
+
+function determineGenderPrompt(modelIdentity: string) {
+  const isFemale = modelIdentity.toLowerCase().includes("female")
+  const isMale = modelIdentity.toLowerCase().includes("male")
+  if (isFemale) {
+    return "A professional female fashion model wearing the exact outfit shown in the layout image. The model is realistic, styled for a studio editorial photo, with natural lighting, proportional body, and confident posture."
+  } else if (isMale) {
+    return "A professional male fashion model wearing the exact outfit shown in the layout image. Keep the style, color, and texture consistent. Full body shot with confident posture, studio lighting, and fashion magazine realism."
+  }
+  return "A single professional fashion model dressed in the outfit from the layout image, realistic body and posture, clean studio setup."
+}
+
+async function generateWithReplicate(basePrompt: string, negativePrompt: string, imageBuffer: Buffer) {
+  const replicate = new Replicate({ auth: REPLICATE_API_KEY });
+  const base64 = imageBuffer.toString('base64');
+  const dataURI = `data:image/jpeg;base64,${base64}`;
+  const input = {
+    prompt: basePrompt,
+    negative_prompt: negativePrompt,
+    input_image: dataURI,
+    output_format: "jpg"
+  };
+  const output = await replicate.run("black-forest-labs/flux-kontext-pro", { input });
+  console.log('Replicate outputUrl:', output);
+  if (!output) throw new Error("No output URL returned from Replicate.");
+
+  // If output is a ReadableStream, convert to base64 data URL
+  if (typeof ReadableStream !== 'undefined' && output instanceof ReadableStream) {
+    const reader = output.getReader();
+    const chunks = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    const imageData = new Uint8Array(chunks.flatMap(chunk => Array.from(chunk)));
+    const base64Image = Buffer.from(imageData).toString('base64');
+    return `data:image/jpeg;base64,${base64Image}`;
+  }
+
+  if (Array.isArray(output)) {
+    const first = (output as any[])[0];
+    if (typeof first === 'string' && first.startsWith('http')) return first;
+  }
+  if (typeof output === 'string' && (output as string).startsWith('http')) return output;
+  if (
+    typeof output === 'object' &&
+    output !== null &&
+    'output' in output &&
+    Array.isArray((output as any).output)
+  ) {
+    if (typeof (output as any).output[0] === 'string' && (output as any).output[0].startsWith('http')) {
+      return (output as any).output[0];
+    }
+  }
+  // Try to find a string URL property recursively
+  if (typeof output === 'object' && output !== null) {
+    const findUrl = (obj: any): string | null => {
+      for (const key in obj) {
+        if (typeof obj[key] === 'string' && obj[key].startsWith('http')) return obj[key];
+        if (typeof obj[key] === 'object' && obj[key] !== null) {
+          const found = findUrl(obj[key]);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    const foundUrl = findUrl(output);
+    if (foundUrl) return foundUrl;
+  }
+  return output;
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { layoutImageBase64, options = {} }: {
-      layoutImageBase64: string
-      options?: GenerationOptions
-    } = body
-
-    if (!layoutImageBase64) {
-      return NextResponse.json(
-        { error: 'Layout image is required' },
-        { status: 400 }
-      )
+    const { imagesBase64 } = body // Array of base64 images
+    if (!imagesBase64 || !Array.isArray(imagesBase64) || imagesBase64.length === 0) {
+      return NextResponse.json({ error: 'No clothing images provided' }, { status: 400 })
     }
-
-    // Check if Replicate API token is configured
-    if (!process.env.REPLICATE_API_TOKEN) {
-      return NextResponse.json(
-        { error: 'Replicate API token not configured' },
-        { status: 500 }
-      )
-    }
-
-    // Generate the virtual try-on image
-    const generatedImageUrl = await generateVirtualTryOn(layoutImageBase64, options)
-
-    return NextResponse.json({
-      success: true,
-      imageUrl: generatedImageUrl,
-      timestamp: new Date().toISOString()
-    })
-
-  } catch (error) {
+    // Convert base64 images to Buffers
+    const imageBuffers = imagesBase64.map((b64: string) => Buffer.from(b64.split(',')[1], 'base64'))
+    // Create grid layout in memory
+    const stitchedBuffer = await createGridLayoutFromBuffers(imageBuffers)
+    // Analyze with Gemini
+    const geminiJSON = await analyzeWithGeminiBuffer(stitchedBuffer)
+    const genderPrompt = determineGenderPrompt(geminiJSON?.model?.identity || '')
+    const combinedPrompt = `${genderPrompt} ${geminiJSON.prompt}`
+    const negativePrompt = "multiple people, group, crowd, duplicate model, extra body parts, extra limbs, multiple faces, clones, reflections, cartoon, illustration, anime, unrealistic, distorted, deformed, poorly drawn, bad anatomy, wrong proportions, mutation, mutated, ugly, overexposed, underexposed, text, watermark, logo, low resolution, low quality, cropped, background clutter, extra garments, extra accessories"
+    // Generate with Replicate
+    const outputUrl = await generateWithReplicate(combinedPrompt, negativePrompt, stitchedBuffer)
+    return NextResponse.json({ success: true, imageUrl: outputUrl, timestamp: new Date().toISOString() })
+  } catch (error: any) {
     console.error('Error in generate API route:', error)
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-    
-    return NextResponse.json(
-      { 
-        error: 'Failed to generate virtual try-on',
-        details: errorMessage
-      },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to generate virtual try-on', details: error?.message || error }, { status: 500 })
   }
 }
 

@@ -2,6 +2,10 @@
 
 import React, { useState, useCallback } from 'react'
 import { Upload, X, Plus, Wand2, Download, RotateCcw } from 'lucide-react'
+import ClothingUploader from '../components/ClothingUploader'
+import LayoutComposer from '../components/LayoutComposer'
+import html2canvas from 'html2canvas'
+import { stitchImagesSideBySide } from '../../lib/image-utils'
 
 interface ClothingItem {
   id: string
@@ -18,7 +22,7 @@ interface LayoutItem extends ClothingItem {
   height: number
 }
 
-type GeneratorStep = 'upload' | 'layout' | 'generate'
+type GeneratorStep = 'upload' | 'generate'
 
 export default function GeneratorPage() {
   const [currentStep, setCurrentStep] = useState<GeneratorStep>('upload')
@@ -26,6 +30,7 @@ export default function GeneratorPage() {
   const [layoutItems, setLayoutItems] = useState<LayoutItem[]>([])
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [layoutImageBase64, setLayoutImageBase64] = useState<string | null>(null)
 
   const steps = [
     {
@@ -33,12 +38,6 @@ export default function GeneratorPage() {
       title: 'Upload Items',
       emoji: '📤',
       description: 'Add clothing items to your collection'
-    },
-    {
-      id: 'layout' as const,
-      title: 'Create Layout',
-      emoji: '🎨',
-      description: 'Arrange items into an outfit'
     },
     {
       id: 'generate' as const,
@@ -52,8 +51,7 @@ export default function GeneratorPage() {
     return steps.findIndex(s => s.id === step)
   }
 
-  const canProceedToLayout = clothingItems.length > 0
-  const canProceedToGenerate = layoutItems.length > 0
+  const canProceedToGenerate = clothingItems.length > 0
 
   const resetGenerator = () => {
     setCurrentStep('upload')
@@ -61,7 +59,57 @@ export default function GeneratorPage() {
     setLayoutItems([])
     setGeneratedImage(null)
     setIsGenerating(false)
+    setLayoutImageBase64(null)
   }
+
+  const handleItemsUploaded = async (items: ClothingItem[]) => {
+    setClothingItems(items);
+    if (items.length > 0) {
+      // Stitch images side by side
+      const stitched = await stitchImagesSideBySide(items.map(i => i.imageUrl));
+      setLayoutImageBase64(stitched);
+    } else {
+      setLayoutImageBase64(null);
+    }
+  };
+
+  // Helper to convert File to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleGenerateLook = async () => {
+    if (!clothingItems.length) {
+      alert('No clothing items found. Please upload items and try again.');
+      return;
+    }
+    setIsGenerating(true);
+    setGeneratedImage(null);
+    try {
+      // Convert all clothing item files to base64
+      const imagesBase64 = await Promise.all(clothingItems.map(item => fileToBase64(item.file)));
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imagesBase64 })
+      });
+      const data = await res.json();
+      if (data.imageUrl) {
+        setGeneratedImage(data.imageUrl);
+      } else {
+        alert(data.error || 'Failed to generate look');
+      }
+    } catch (err) {
+      alert('Error generating look: ' + (err instanceof Error ? err.message : err));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <div className="space-y-xxxl">
@@ -74,7 +122,7 @@ export default function GeneratorPage() {
           </h1>
         </div>
         
-        {(clothingItems.length > 0 || layoutItems.length > 0 || generatedImage) && (
+        {(clothingItems.length > 0 || generatedImage) && (
           <button
             onClick={resetGenerator}
             className="btn-ghost flex items-center space-x-sm"
@@ -133,88 +181,24 @@ export default function GeneratorPage() {
       <div className="min-h-[600px]">
         {currentStep === 'upload' && (
           <div className="notion-card">
-            <div className="flex items-center space-x-sm mb-xxl">
-              <span className="text-xl">📤</span>
-              <h2 className="text-section-header text-notion-text-primary">
-                Upload Clothing Items
-              </h2>
-            </div>
-            <p className="text-body-text text-notion-text-secondary mb-xxl">
-              Upload high-quality images of clothing items you want to include in your look. 
-              Supported formats: JPG, PNG, WebP.
-            </p>
-            
-            {/* Upload placeholder - will be replaced with actual component */}
-            <div className="border-2 border-dashed border-notion-border rounded-notion p-xxxl text-center">
-              <Upload className="mx-auto mb-lg text-notion-text-tertiary" size={48} />
-              <h3 className="text-block-title text-notion-text-primary mb-sm">
-                Upload Clothing Items
-              </h3>
-              <p className="text-body-text text-notion-text-secondary mb-lg">
-                Drag and drop images here, or click to browse
-              </p>
-              <button className="btn-primary">
-                Choose Files
-              </button>
-            </div>
-            
-            {canProceedToLayout && (
+            <ClothingUploader
+              onItemsUploaded={handleItemsUploaded}
+              existingItems={clothingItems}
+            />
+            {clothingItems.length > 0 && (
               <div className="flex justify-end pt-lg border-t border-notion-border mt-xxl">
                 <button
-                  onClick={() => setCurrentStep('layout')}
-                  className="btn-primary flex items-center space-x-sm"
-                >
-                  <span>Create Layout</span>
-                  <Plus size={16} />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {currentStep === 'layout' && (
-          <div className="notion-card">
-            <div className="flex items-center space-x-sm mb-xxl">
-              <span className="text-xl">🎨</span>
-              <h2 className="text-section-header text-notion-text-primary">
-                Create Outfit Layout
-              </h2>
-            </div>
-            <p className="text-body-text text-notion-text-secondary mb-xxl">
-              Arrange your clothing items to create the perfect outfit composition.
-            </p>
-            
-            {/* Layout placeholder - will be replaced with actual component */}
-            <div className="bg-notion-block-bg border border-notion-border rounded-notion p-xxxl min-h-[400px] flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-4xl mb-lg">🎨</div>
-                <h3 className="text-block-title text-notion-text-primary mb-sm">
-                  Layout Composer
-                </h3>
-                <p className="text-body-text text-notion-text-secondary">
-                  Drag and arrange clothing items to create your look
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex justify-between pt-lg border-t border-notion-border mt-xxl">
-              <button
-                onClick={() => setCurrentStep('upload')}
-                className="btn-secondary"
-              >
-                ← Back to Upload
-              </button>
-              
-              {canProceedToGenerate && (
-                <button
-                  onClick={() => setCurrentStep('generate')}
+                  onClick={() => {
+                    setCurrentStep('generate');
+                    handleGenerateLook();
+                  }}
                   className="btn-primary flex items-center space-x-sm"
                 >
                   <Wand2 size={16} />
                   <span>Generate Look</span>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -230,9 +214,8 @@ export default function GeneratorPage() {
               Our AI will generate a realistic virtual try-on using your outfit layout.
             </p>
             
-            {/* Generator placeholder - will be replaced with actual component */}
-            <div className="bg-notion-block-bg border border-notion-border rounded-notion p-xxxl min-h-[400px] flex items-center justify-center">
-              <div className="text-center">
+            <div className="bg-notion-block-bg border border-notion-border rounded-notion p-xxxl min-h-[400px] flex flex-col items-center justify-center">
+              <div className="text-center w-full">
                 {isGenerating ? (
                   <div>
                     <div className="text-4xl mb-lg">⏳</div>
@@ -245,7 +228,8 @@ export default function GeneratorPage() {
                   </div>
                 ) : generatedImage ? (
                   <div>
-                    <div className="text-4xl mb-lg">🎉</div>
+                    <img src={generatedImage} alt="Generated Look" style={{maxWidth: 400, borderRadius: 16, margin: '0 auto'}} />
+                    <div className="text-4xl mb-lg mt-lg">🎉</div>
                     <h3 className="text-block-title text-notion-text-primary mb-sm">
                       Look Generated Successfully!
                     </h3>
@@ -262,41 +246,32 @@ export default function GeneratorPage() {
                     <p className="text-body-text text-notion-text-secondary mb-lg">
                       Click the button below to create your virtual try-on
                     </p>
-                    <button
-                      onClick={() => setIsGenerating(true)}
-                      className="btn-primary flex items-center space-x-sm"
-                    >
-                      <Wand2 size={16} />
-                      <span>Generate Look</span>
-                    </button>
                   </div>
                 )}
               </div>
             </div>
-            
-            <div className="flex justify-between pt-lg border-t border-notion-border mt-xxl">
+            {/* Center and align the action buttons in a row */}
+            <div className="flex flex-row justify-center items-center gap-md pt-lg border-t border-notion-border mt-xxl">
               <button
-                onClick={() => setCurrentStep('layout')}
+                onClick={() => setCurrentStep('upload')}
                 className="btn-secondary"
               >
-                ← Back to Layout
+                ← Back to Upload
               </button>
-              
               {generatedImage && (
-                <div className="flex space-x-md">
+                <>
                   <button className="btn-secondary flex items-center space-x-sm">
                     <Download size={16} />
                     <span>Download</span>
                   </button>
-                  
                   <button
-                    onClick={() => setIsGenerating(true)}
+                    onClick={handleGenerateLook}
                     className="btn-primary flex items-center space-x-sm"
                   >
                     <Wand2 size={16} />
                     <span>Generate Again</span>
                   </button>
-                </div>
+                </>
               )}
             </div>
           </div>

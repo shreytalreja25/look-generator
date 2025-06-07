@@ -225,4 +225,36 @@ export async function createThumbnail(
   ctx.drawImage(img, 0, 0, width, height)
   
   return canvas.toDataURL('image/jpeg', 0.8)
+}
+
+/**
+ * Stitch an array of image URLs side by side into a single base64 image
+ */
+export async function stitchImagesSideBySide(imageUrls: string[], targetHeight: number = 400): Promise<string> {
+  if (imageUrls.length === 0) throw new Error('No images to stitch');
+  // Load all images
+  const images = await Promise.all(imageUrls.map(url => {
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = url;
+    });
+  }));
+  // Calculate total width and scale each image to targetHeight
+  const widths = images.map(img => img.width * (targetHeight / img.height));
+  const totalWidth = widths.reduce((a, b) => a + b, 0);
+  const canvas = document.createElement('canvas');
+  canvas.width = totalWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not get canvas context');
+  let x = 0;
+  for (let i = 0; i < images.length; i++) {
+    const w = widths[i];
+    ctx.drawImage(images[i], x, 0, w, targetHeight);
+    x += w;
+  }
+  return canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
 } 

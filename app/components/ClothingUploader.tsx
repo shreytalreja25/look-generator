@@ -236,28 +236,6 @@ export default function ClothingUploader({ onItemsUploaded, existingItems }: Clo
                     className="w-full h-full object-cover"
                   />
                 </div>
-
-                {/* Item Name Input */}
-                <input
-                  type="text"
-                  value={item.name}
-                  onChange={(e) => handleNameChange(item.id, e.target.value)}
-                  className="input-field w-full mb-sm"
-                  placeholder="Item name"
-                />
-
-                {/* Category Selector */}
-                <select
-                  value={item.category}
-                  onChange={(e) => handleCategoryChange(item.id, e.target.value as ClothingItem['category'])}
-                  className="input-field w-full"
-                >
-                  {Object.entries(categoryLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
               </div>
             ))}
           </div>

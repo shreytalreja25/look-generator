@@ -5,72 +5,72 @@ const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN || '',
 })
 
-export interface ClothingItem {
-  id: string
-  name: string
-  category: 'top' | 'bottom' | 'shoes' | 'accessories'
-  imageUrl: string
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
 export interface GenerationOptions {
-  modelType?: 'female' | 'male' | 'diverse'
-  style?: 'casual' | 'formal' | 'streetwear' | 'bohemian'
-  background?: 'studio' | 'outdoor' | 'minimal' | 'lifestyle'
-  pose?: 'front' | 'side' | 'dynamic' | 'sitting'
+  prompt: string
+  negative_prompt?: string
+  layoutImageBase64: string
+  strength?: number
+  guidance_scale?: number
+  num_inference_steps?: number
+  seed?: number
+  output_format?: string
 }
 
 /**
- * Generate a virtual try-on image using Replicate's virtual try-on models
+ * Generate a virtual try-on image using black-forest-labs/flux-kontext-pro
  */
-export async function generateVirtualTryOn(
-  layoutImageBase64: string,
-  options: GenerationOptions = {}
-): Promise<string> {
+export async function generateVirtualTryOn(options: GenerationOptions): Promise<string> {
   try {
     const {
-      modelType = 'diverse',
-      style = 'casual',
-      background = 'studio',
-      pose = 'front'
+      prompt = "A professional fashion model wearing the exact outfit as arranged in the provided layout image. The model should wear only the clothing items shown in the layout, matching their style, color, and position. High-resolution, studio lighting, realistic fabric textures, natural pose, clean background, fashion magazine quality.",
+      negative_prompt = "cartoon, drawing, anime, illustration, extra clothing, extra accessories, unrealistic, deformed, distorted, disfigured, poorly drawn, bad anatomy, wrong anatomy, extra limb, missing limb, floating limbs, disconnected limbs, mutation, mutated, ugly, low quality, watermark, text, logo, blurry, out of frame, cropped, duplicate, multiple people, background clutter",
+      layoutImageBase64,
+      strength = 1,
+      guidance_scale = 4.0,
+      num_inference_steps = 4,
+      seed = Math.floor(Math.random() * 1000000),
+      output_format = 'jpg',
     } = options
 
-    // Use a virtual try-on model (this is a placeholder - you'll need to find the actual model)
-    // Popular models include: tencentarc/gfpgan, stability-ai/stable-diffusion, etc.
-    // For virtual try-on specifically, look for models like "virtual-try-on" or "fashion-synthesis"
-    
-    const prompt = `Professional fashion photography, ${modelType} model wearing the outfit from the provided layout, ${style} style, ${background} background, ${pose} pose, high resolution, studio lighting, fashion photography, clean composition, realistic fabric textures, professional modeling`
-
+    const replicateInput = {
+      prompt,
+      negative_prompt,
+      input_image: `data:image/png;base64,${layoutImageBase64}`,
+      strength,
+      guidance_scale,
+      num_inference_steps,
+      seed,
+      output_format
+    }
+    console.log('Replicate API input:', JSON.stringify(replicateInput, null, 2));
     const output = await replicate.run(
-      // Note: This is a placeholder model. You'll need to find an actual virtual try-on model
-      // Some options to explore:
-      // - "tencentarc/gfpgan" for face enhancement
-      // - "cjwbw/anything-v3.0" for general image generation
-      // - Look for specific virtual try-on models on Replicate
-      "stability-ai/stable-diffusion:27b93a2413e7f36cd83da926f3656280b2931564ff050bf9575f1fdf9bcd7478",
-      {
-        prompt: prompt,
-        image: `data:image/png;base64,${layoutImageBase64}`,
-        num_inference_steps: 50,
-        guidance_scale: 7.5,
-        width: 512,
-        height: 768,
-        seed: Math.floor(Math.random() * 1000000)
-      }
+      "black-forest-labs/flux-kontext-pro",
+      { input: replicateInput }
     )
 
-    // The output format depends on the model used
-    if (Array.isArray(output) && output.length > 0) {
-      return output[0] as string
-    } else if (typeof output === 'string') {
-      return output
+    // Log the output for debugging
+    console.log('Replicate API output:', output);
+
+    // Handle streaming response
+    if (output instanceof ReadableStream) {
+      const reader = output.getReader();
+      const chunks: Uint8Array[] = [];
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      
+      // Combine all chunks into a single Uint8Array
+      const imageData = new Uint8Array(chunks.flatMap(chunk => Array.from(chunk)));
+      
+      // Convert to base64
+      const base64 = Buffer.from(imageData).toString('base64');
+      return `data:image/jpeg;base64,${base64}`;
     }
 
     throw new Error('Unexpected output format from Replicate API')
-
   } catch (error) {
     console.error('Error generating virtual try-on:', error)
     throw new Error(`Failed to generate virtual try-on: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -81,12 +81,17 @@ export async function generateVirtualTryOn(
  * Generate multiple variations of a virtual try-on
  */
 export async function generateVirtualTryOnVariations(
+  prompt: string,
   layoutImageBase64: string,
   count: number = 3,
-  options: GenerationOptions = {}
+  options: Omit<GenerationOptions, 'prompt' | 'layoutImageBase64'> = {}
 ): Promise<string[]> {
   const promises = Array.from({ length: count }, () => 
-    generateVirtualTryOn(layoutImageBase64, options)
+    generateVirtualTryOn({
+      prompt,
+      layoutImageBase64,
+      ...options
+    })
   )
 
   try {
@@ -103,27 +108,6 @@ export async function generateVirtualTryOnVariations(
  */
 export function checkReplicateConfig(): boolean {
   return !!process.env.REPLICATE_API_TOKEN
-}
-
-/**
- * Get available models for virtual try-on (you'll need to update this based on available models)
- */
-export function getAvailableModels() {
-  return [
-    {
-      id: 'stable-diffusion',
-      name: 'Stable Diffusion',
-      description: 'General purpose image generation with clothing prompt',
-      category: 'general'
-    },
-    {
-      id: 'gfpgan',
-      name: 'GFPGAN Face Enhancement',
-      description: 'Face enhancement for better portrait results',
-      category: 'enhancement'
-    }
-    // Add more models as they become available
-  ]
 }
 
 export default replicate 
