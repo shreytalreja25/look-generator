@@ -31,6 +31,7 @@ export default function GeneratorPage() {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [layoutImageBase64, setLayoutImageBase64] = useState<string | null>(null)
+  const [backgroundStyle, setBackgroundStyle] = useState<'studio' | 'lifestyle'>('studio')
 
   const steps = [
     {
@@ -96,7 +97,7 @@ export default function GeneratorPage() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imagesBase64 })
+        body: JSON.stringify({ imagesBase64, backgroundStyle })
       });
       const data = await res.json();
       if (data.imageUrl) {
@@ -185,6 +186,32 @@ export default function GeneratorPage() {
               onItemsUploaded={handleItemsUploaded}
               existingItems={clothingItems}
             />
+            {/* Background Style Selector */}
+            <div className="mt-lg mb-lg">
+              <label className="text-block-title text-notion-text-primary mb-sm block">Background Style</label>
+              <div className="flex space-x-lg">
+                <label className="flex items-center space-x-sm">
+                  <input
+                    type="radio"
+                    name="backgroundStyle"
+                    value="studio"
+                    checked={backgroundStyle === 'studio'}
+                    onChange={() => setBackgroundStyle('studio')}
+                  />
+                  <span>Studio (Professional)</span>
+                </label>
+                <label className="flex items-center space-x-sm">
+                  <input
+                    type="radio"
+                    name="backgroundStyle"
+                    value="lifestyle"
+                    checked={backgroundStyle === 'lifestyle'}
+                    onChange={() => setBackgroundStyle('lifestyle')}
+                  />
+                  <span>Lifestyle (Real Life)</span>
+                </label>
+              </div>
+            </div>
             {clothingItems.length > 0 && (
               <div className="flex justify-end pt-lg border-t border-notion-border mt-xxl">
                 <button
