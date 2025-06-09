@@ -40,13 +40,13 @@ const defaultModels = {
     id: 'default-male',
     type: 'default' as const,
     gender: 'male' as const,
-    imageUrl: '/models/default-male.jpg'
+    imageUrl: '/male.png'
   },
   female: {
     id: 'default-female',
     type: 'default' as const,
     gender: 'female' as const,
-    imageUrl: '/models/default-female.jpg'
+    imageUrl: '/female.png'
   }
 }
 
@@ -341,11 +341,13 @@ export default function ClothingUploader({
                     : 'border-gray-200 hover:border-primary'
                 }`}
               >
-                <img
-                  src={defaultModels.male.imageUrl}
-                  alt="Default Male Model"
-                  className="w-full h-48 object-cover rounded-lg mb-2"
-                />
+                <div className="w-48 h-64 bg-gray-100 rounded-lg mb-2 overflow-hidden flex items-center justify-center">
+                  <img
+                    src={defaultModels.male.imageUrl}
+                    alt="Default Male Model"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
                 <p className="font-medium">Default Male Model</p>
               </button>
               <button
@@ -356,11 +358,13 @@ export default function ClothingUploader({
                     : 'border-gray-200 hover:border-primary'
                 }`}
               >
-                <img
-                  src={defaultModels.female.imageUrl}
-                  alt="Default Female Model"
-                  className="w-full h-48 object-cover rounded-lg mb-2"
-                />
+                <div className="w-48 h-64 bg-gray-100 rounded-lg mb-2 overflow-hidden flex items-center justify-center">
+                  <img
+                    src={defaultModels.female.imageUrl}
+                    alt="Default Female Model"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
                 <p className="font-medium">Default Female Model</p>
               </button>
             </div>
