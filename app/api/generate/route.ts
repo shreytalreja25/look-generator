@@ -3,6 +3,7 @@ import sharp from 'sharp'
 import Replicate from 'replicate'
 import fetch from 'node-fetch'
 import { GoogleGenAI, createUserContent, createPartFromUri } from '@google/genai'
+import { ClothingItem, ModelReference } from '../../../lib/image-utils'
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
 const REPLICATE_API_KEY = process.env.REPLICATE_API_TOKEN || ''
@@ -50,7 +51,7 @@ async function createGridLayoutFromBuffers(imageBuffers: Buffer[]): Promise<Buff
   return finalStitched
 }
 
-async function analyzeWithGeminiBuffer(imageBuffer: Buffer, backgroundStyle: 'studio' | 'lifestyle' = 'studio') {
+async function analyzeWithGeminiBuffer(imageBuffer: Buffer, backgroundStyle: 'studio' | 'lifestyle' = 'studio', modelReference?: ModelReference) {
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY })
   // Upload the buffer as a Blob
   const file = await ai.files.upload({ file: new Blob([imageBuffer], { type: 'image/jpeg' }) })
@@ -58,11 +59,20 @@ async function analyzeWithGeminiBuffer(imageBuffer: Buffer, backgroundStyle: 'st
   const bgInstruction = backgroundStyle === 'studio'
     ? 'The user wants the background to be a professional studio style (clean, minimal, well-lit, neutral or white background).'
     : 'The user wants the background to be a lifestyle/real-life setting (natural, realistic, contextually appropriate for the outfit, e.g. street, home, cafe, park, etc).';
+  // Add model reference instruction
+  let modelInstruction = ''
+  if (modelReference) {
+    if (modelReference.type === 'default') {
+      modelInstruction = `The model should be a ${modelReference.gender} model with a professional appearance.`
+    } else {
+      modelInstruction = 'The model should match the provided reference image in appearance and pose.'
+    }
+  }
   const response = await ai.models.generateContent({
     model: "gemini-2.0-flash",
     contents: [
       createUserContent([
-        `${bgInstruction}\n\nYou are a professional fashion analyst AI.\n\nPlease analyze the attached stitched outfit layout image and identify each clothing item or accessory shown in the grid (top-left to bottom-right order). For each item, describe:\n\n- Type of item (e.g., sunglasses, shirt, jeans, sneakers)\n- Primary use or region of the body (e.g., torso, legs, face, feet)\n- Color and pattern\n- Material/fabric type (e.g., cotton, denim, synthetic, plastic)\n- Visible textures or design features (e.g., glossy plastic frame, printed logo, button-up front, elastic sole)\n- Fit and cut (e.g., slim fit, relaxed, flared)\n- Style association (e.g., casual, sporty, summer wear, streetwear, formal)\n- Gender relevance (e.g., unisex, male, female)\n\nThen, generate a structured JSON object describing:\n1. A model identity and appearance matching the outfit\n2. A high-quality prompt to generate the outfit on a realistic try-on model\n3. A breakdown of the outfit by items\n4. A suitable background style and setting\n5. Output requirements for realism\n\nFormat:\n\n{\n  "prompt": "AI generation description",\n  "model": {\n    "identity": "...",\n    "pose": "...",\n    "expression": "...",\n    "lighting": "..."\n  },\n  "garment": {\n    "items": [\n      {\n        "type": "...",\n        "location": "...",\n        "color": "...",\n        "material": "...",\n        "texture": "...",\n        "fit": "...",\n        "style": "...",\n        "gender": "..."\n      },\n      ...\n    ]\n  },\n  "background": {\n    "type": "...",\n    "style": "...",\n    "integration": "..."\n  },\n  "output_requirements": {\n    "preserve_model_lighting": true,\n    "blend_model_into_background": true,\n    "no_pose_change": true,\n    "no_outfit_change": true,\n    "realistic_shadows": "..."\n  }\n}\n\nFocus on intricate visual details, textures, and fashion categorization. Do not skip any accessory.`,
+        `${bgInstruction}\n${modelInstruction}\n\nYou are a professional fashion analyst AI.\n\nPlease analyze the attached stitched outfit layout image and identify each clothing item or accessory shown in the grid (top-left to bottom-right order). For each item, describe:\n\n- Type of item (e.g., sunglasses, shirt, jeans, sneakers)\n- Primary use or region of the body (e.g., torso, legs, face, feet)\n- Color and pattern\n- Material/fabric type (e.g., cotton, denim, synthetic, plastic)\n- Visible textures or design features (e.g., glossy plastic frame, printed logo, button-up front, elastic sole)\n- Fit and cut (e.g., slim fit, relaxed, flared)\n- Style association (e.g., casual, sporty, summer wear, streetwear, formal)\n- Gender relevance (e.g., unisex, male, female)\n\nThen, generate a structured JSON object describing:\n1. A model identity and appearance matching the outfit\n2. A high-quality prompt to generate the outfit on a realistic try-on model\n3. A breakdown of the outfit by items\n4. A suitable background style and setting\n5. Output requirements for realism\n\nFormat:\n\n{\n  "prompt": "AI generation description",\n  "model": {\n    "identity": "...",\n    "pose": "...",\n    "expression": "...",\n    "lighting": "..."\n  },\n  "garment": {\n    "items": [\n      {\n        "type": "...",\n        "location": "...",\n        "color": "...",\n        "material": "...",\n        "texture": "...",\n        "fit": "...",\n        "style": "...",\n        "gender": "..."\n      },\n      ...\n    ]\n  },\n  "background": {\n    "type": "...",\n    "style": "...",\n    "integration": "..."\n  },\n  "output_requirements": {\n    "preserve_model_lighting": true,\n    "blend_model_into_background": true,\n    "no_pose_change": true,\n    "no_outfit_change": true,\n    "realistic_shadows": "..."\n  }\n}\n\nFocus on intricate visual details, textures, and fashion categorization. Do not skip any accessory.`,
         createPartFromUri(file.uri, file.mimeType),
       ]),
     ],
@@ -149,16 +159,23 @@ async function generateWithReplicate(basePrompt: string, negativePrompt: string,
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { imagesBase64, backgroundStyle = 'studio' } = body // Array of base64 images and background style
-    if (!imagesBase64 || !Array.isArray(imagesBase64) || imagesBase64.length === 0) {
-      return NextResponse.json({ error: 'No clothing images provided' }, { status: 400 })
+    const { clothingItems, modelReference, backgroundStyle = 'studio' } = body
+    if (!clothingItems || !Array.isArray(clothingItems) || clothingItems.length === 0) {
+      return NextResponse.json({ error: 'No clothing items provided' }, { status: 400 })
+    }
+    // Only stitch garments and accessories, not model image
+    const imagesBase64 = clothingItems
+      .filter((item: any) => item.type === 'garments' || item.type === 'accessories')
+      .map((item: any) => item.imageUrl)
+    if (!imagesBase64.length) {
+      return NextResponse.json({ error: 'No garment or accessory images provided' }, { status: 400 })
     }
     // Convert base64 images to Buffers
     const imageBuffers = imagesBase64.map((b64: string) => Buffer.from(b64.split(',')[1], 'base64'))
     // Create grid layout in memory
     const stitchedBuffer = await createGridLayoutFromBuffers(imageBuffers)
-    // Analyze with Gemini, passing backgroundStyle
-    const geminiJSON = await analyzeWithGeminiBuffer(stitchedBuffer, backgroundStyle)
+    // Analyze with Gemini, passing backgroundStyle and modelReference
+    const geminiJSON = await analyzeWithGeminiBuffer(stitchedBuffer, backgroundStyle, modelReference)
     const genderPrompt = determineGenderPrompt(geminiJSON?.model?.identity || '')
     const combinedPrompt = `${genderPrompt} ${geminiJSON.prompt}`
     const negativePrompt = "multiple people, group, crowd, duplicate model, extra body parts, extra limbs, multiple faces, clones, reflections, cartoon, illustration, anime, unrealistic, distorted, deformed, poorly drawn, bad anatomy, wrong proportions, mutation, mutated, ugly, overexposed, underexposed, text, watermark, logo, low resolution, low quality, cropped, background clutter, extra garments, extra accessories"

@@ -9,6 +9,15 @@ export interface ClothingItem {
   category: 'top' | 'bottom' | 'shoes' | 'accessories'
   imageUrl: string
   file: File
+  type: 'garments' | 'accessories'
+}
+
+export interface ModelReference {
+  id: string
+  type: 'default' | 'custom'
+  gender?: 'male' | 'female'
+  imageUrl?: string
+  file?: File
 }
 
 export interface LayoutItem extends ClothingItem {
@@ -173,6 +182,17 @@ export function validateImageFile(file: File): { isValid: boolean; error?: strin
     }
   }
   
+  return { isValid: true }
+}
+
+/**
+ * Validate model reference image
+ */
+export function validateModelImage(file: File): { isValid: boolean; error?: string } {
+  const validation = validateImageFile(file)
+  if (!validation.isValid) return validation
+
+  // Additional model-specific validations can be added here
   return { isValid: true }
 }
 
