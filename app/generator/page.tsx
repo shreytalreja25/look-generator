@@ -19,6 +19,7 @@ export default function GeneratorPage() {
   const [stepIndex, setStepIndex] = useState(0)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
+  const [generatedMoodboard, setGeneratedMoodboard] = useState<null | { label: string; url: string }[]>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Step navigation
@@ -50,15 +51,22 @@ export default function GeneratorPage() {
     setIsGenerating(true)
     setError(null)
     setGeneratedImage(null)
+    setGeneratedMoodboard(null)
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clothingItems, modelReference: selectedModel }),
+        body: JSON.stringify({ clothingItems, modelReference: selectedModel, backgroundStyle }),
       })
       if (!response.ok) throw new Error('Failed to generate look')
       const data = await response.json()
-      setGeneratedImage(data.imageUrl)
+      if (data.moodboard) {
+        setGeneratedMoodboard(data.moodboard)
+        setGeneratedImage(null)
+      } else {
+        setGeneratedImage(data.imageUrl)
+        setGeneratedMoodboard(null)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -147,7 +155,7 @@ export default function GeneratorPage() {
     // Step 4: Review & Generate
     content = (
       <div className="max-w-2xl mx-auto w-full">
-        {!generatedImage ? (
+        {!generatedImage && !generatedMoodboard ? (
           <div className="bg-white rounded-lg shadow-sm p-8 animate-fade-in">
             <h2 className="text-2xl font-bold mb-6 text-center">Review & Generate</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -220,6 +228,47 @@ export default function GeneratorPage() {
             >
               <ArrowLeft className="inline w-4 h-4 mr-1" /> Go Back
             </button>
+          </div>
+        ) : generatedMoodboard ? (
+          <div className="bg-white rounded-lg shadow-sm p-8 flex flex-col items-center animate-fade-in">
+            <h2 className="text-2xl font-bold mb-6 text-center">🖼️ Studio Moodboard</h2>
+            <div className="flex flex-row gap-6 w-full justify-center mb-6">
+              {generatedMoodboard.map((item, idx) => (
+                <div key={idx} className="flex flex-col items-center">
+                  <img
+                    src={item.url}
+                    alt={item.label}
+                    className="w-48 h-64 object-cover rounded-lg shadow-lg mb-2 border border-gray-200"
+                    style={{ animation: 'fadeIn 1s' }}
+                  />
+                  <span className="text-base font-medium text-gray-700 mt-1">{item.label}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-4 mt-4">
+              {generatedMoodboard.map((item, idx) => (
+                <a
+                  key={idx}
+                  href={item.url}
+                  download={`moodboard-${item.label.toLowerCase().replace(/\s/g, '-')}.jpg`}
+                  className="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" /> Download {item.label}
+                </a>
+              ))}
+              <button
+                onClick={() => { setGeneratedMoodboard(null); setError(null); }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg flex items-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4" /> Try Again
+              </button>
+              <button
+                onClick={resetAll}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg flex items-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" /> Go Back
+              </button>
+            </div>
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm p-8 flex flex-col items-center animate-fade-in">

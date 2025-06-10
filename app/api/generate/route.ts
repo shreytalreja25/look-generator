@@ -156,6 +156,121 @@ async function generateWithReplicate(basePrompt: string, negativePrompt: string,
   return output;
 }
 
+// Helper to generate a structured JSON prompt for a given view
+async function generateStructuredPromptWithGemini({
+  geminiJSON,
+  garmentDescription,
+  view,
+  basePrompt
+}: {
+  geminiJSON: any,
+  garmentDescription: string,
+  view: 'Front' | 'Close-up' | 'Back' | 'Side',
+  basePrompt: string
+}) {
+  // Camera/pose instructions for each view
+  const viewInstructions: Record<string, string> = {
+    'Front': 'The model should be standing and facing directly towards the camera, full body visible, arms relaxed at the sides, neutral facial expression.',
+    'Close-up': 'The model should be shown in a close-up studio portrait, head and upper torso visible, looking slightly off-camera or straight ahead, natural confident expression.',
+    'Back': 'The model should be standing and facing directly away from the camera, full body visible, arms relaxed at the sides, posture natural. The back of the shirt, pants, and all accessories must be clearly visible and unobstructed.',
+    'Side': 'The model should be standing in a perfect side profile pose (left or right), body turned exactly 90 degrees to the camera, arms relaxed, side of the outfit clearly visible.'
+  }
+  // Compose the Gemini prompt
+  const geminiPrompt = `Generate a JSON-style prompt for an AI image generator to create a single professional fashion model in a ${view} studio pose. The JSON should include fields for prompt, garment_transfer (with source_outfit details), target_model (with identity, pose, expression, body_type, lighting, background, camera_angle), and output_requirements. The output must be a single model, with no duplicates, no extra limbs, no background clutter, no text, no watermarks, and no distortions.\n\nModel details: ${geminiJSON?.model?.identity || ''}.\nPose/camera: ${viewInstructions[view]}.\nOutfit: ${garmentDescription}.\nBackground: studio, soft even lighting, clean neutral background.\n`;
+
+  // Use Gemini to generate the JSON prompt
+  // (Assume GoogleGenAI is already initialized as 'ai')
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY })
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.0-flash',
+    contents: [createUserContent([geminiPrompt])],
+  })
+  // Extract JSON from Gemini response
+  const jsonStart = response.text.indexOf('{')
+  const jsonEnd = response.text.lastIndexOf('}')
+  const jsonText = response.text.slice(jsonStart, jsonEnd + 1)
+  return jsonText
+}
+
+// Example JSON structure for Gemini prompt
+const EXAMPLE_JSON = `{
+  "prompt": "Use only the left-side male model as the subject. Do not change his face, pose, hairstyle, body, lighting, or background. Only change his outfit — replace the plain fitted teal crew-neck T-shirt he is wearing with the shirt worn by the right-side model.",
+  "garment_transfer": {
+    "source_outfit": {
+      "type": "men's casual button-up shirt",
+      "pattern": "plaid checkered in black, navy blue, and white",
+      "fabric": "soft brushed cotton with a matte finish and visible texture",
+      "collar": "standard shirt collar",
+      "closure": "front placket with small white buttons",
+      "sleeves": "full-length sleeves with buttoned cuffs",
+      "pocket": "left chest patch pocket with a small red brand tab",
+      "fit": "relaxed and untucked with a slightly curved hem",
+      "texture": "realistic weave and soft folds around elbows, chest, and shoulders"
+    },
+    "target_model": {
+      "identity": "left-side male model wearing teal T-shirt and grey joggers",
+      "pose": "standing front-facing, arms straight down",
+      "expression": "neutral",
+      "body_type": "athletic build",
+      "lighting": "soft white studio lighting",
+      "background": "clean white seamless background",
+      "camera_angle": "frontal eye-level"
+    }
+  },
+  "output_requirements": {
+    "replace_outfit_only": true,
+    "preserve_face": true,
+    "preserve_pose": true,
+    "preserve_lighting": true,
+    "preserve_background": true,
+    "fit_alignment": true,
+    "pattern_wrap": "align plaid pattern to torso and arms realistically",
+    "realistic_fabric_folds": true
+  }
+}`
+
+// Helper to generate a detailed JSON description of garments, accessories, and model
+async function generateGarmentModelJsonWithGemini({
+  geminiJSON
+}: {
+  geminiJSON: any
+}) {
+  const garmentModelPrompt = `Generate a JSON prompt for a virtual try-on AI. Use the following JSON structure as a template. Fill in the details for the given model, outfit, and accessories.\n\nExample:\n${EXAMPLE_JSON}\n\nNow, for this model and outfit: ${JSON.stringify(geminiJSON)}, generate a JSON prompt in the same structure. The output must be a single image, with only one model, no collages, no extra people/items, no text, no watermarks, no distortions, etc.`;
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY })
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.0-flash',
+    contents: [createUserContent([garmentModelPrompt])],
+  })
+  const jsonStart = response.text.indexOf('{')
+  const jsonEnd = response.text.lastIndexOf('}')
+  const jsonText = response.text.slice(jsonStart, jsonEnd + 1)
+  return jsonText
+}
+
+// Helper to generate a detailed JSON description of the pose/camera for a given view
+async function generatePoseJsonWithGemini({
+  view
+}: {
+  view: 'Front' | 'Close-up' | 'Back' | 'Side'
+}) {
+  const poseInstructions: Record<string, string> = {
+    'Front': 'The model should be standing and facing directly towards the camera, full body visible, arms relaxed at the sides, neutral facial expression, studio lighting, clean background.',
+    'Close-up': 'The model should be shown in a close-up studio portrait, head and upper torso visible, looking slightly off-camera or straight ahead, natural confident expression, studio lighting, clean background.',
+    'Back': 'The model should be standing and facing directly away from the camera, full body visible, arms relaxed at the sides, posture natural. The back of the shirt, pants, and all accessories must be clearly visible and unobstructed, studio lighting, clean background.',
+    'Side': 'The model should be standing in a perfect side profile pose (left or right), body turned exactly 90 degrees to the camera, arms relaxed, side of the outfit clearly visible, studio lighting, clean background.'
+  }
+  const posePrompt = `Generate a JSON object describing only the pose and camera angle for a virtual try-on AI. Use the following JSON structure as a template.\n\nExample:\n${EXAMPLE_JSON}\n\nFor the view: ${view}, describe the pose and camera details in the same structure, filling in only the relevant fields for pose, camera, and visibility. The output must be a single image, with only one model, no collages, no extra people/items, no text, no watermarks, no distortions, etc.\n\nPose/camera: ${poseInstructions[view]}`;
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY })
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.0-flash',
+    contents: [createUserContent([posePrompt])],
+  })
+  const jsonStart = response.text.indexOf('{')
+  const jsonEnd = response.text.lastIndexOf('}')
+  const jsonText = response.text.slice(jsonStart, jsonEnd + 1)
+  return jsonText
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -177,10 +292,70 @@ export async function POST(request: NextRequest) {
     // Analyze with Gemini, passing backgroundStyle and modelReference
     const geminiJSON = await analyzeWithGeminiBuffer(stitchedBuffer, backgroundStyle, modelReference)
     const genderPrompt = determineGenderPrompt(geminiJSON?.model?.identity || '')
-    const combinedPrompt = `${genderPrompt} ${geminiJSON.prompt}`
+    const basePrompt = `${genderPrompt} ${geminiJSON.prompt}`
     const negativePrompt = "multiple people, group, crowd, duplicate model, extra body parts, extra limbs, multiple faces, clones, reflections, cartoon, illustration, anime, unrealistic, distorted, deformed, poorly drawn, bad anatomy, wrong proportions, mutation, mutated, ugly, overexposed, underexposed, text, watermark, logo, low resolution, low quality, cropped, background clutter, extra garments, extra accessories"
-    // Generate with Replicate
-    const outputUrl = await generateWithReplicate(combinedPrompt, negativePrompt, stitchedBuffer)
+
+    // If Studio mode, generate moodboard (4 angles)
+    if (backgroundStyle === 'studio') {
+      console.log('[Moodboard] Gemini analysis complete. Model:', geminiJSON?.model?.identity)
+      // Step 1: Generate garment/model/accessory JSON once
+      const garmentModelJson = await generateGarmentModelJsonWithGemini({ geminiJSON })
+      console.log('[Moodboard] Garment/Model JSON:', garmentModelJson.slice(0, 200) + '...')
+      // Views for the storyboard
+      const views = [
+        { label: 'Front', key: 'Front' },
+        { label: 'Close-up', key: 'Close-up' },
+        { label: 'Back', key: 'Back' },
+        { label: 'Side', key: 'Side' },
+      ]
+      // Generate all images sequentially to preserve identity
+      const moodboard = []
+      let previousImageBuffer = stitchedBuffer // Start with stitched layout for the first image
+      for (let i = 0; i < views.length; i++) {
+        const { label, key } = views[i]
+        console.log(`[Moodboard] Generating pose JSON for: ${label}`)
+        const poseJson = await generatePoseJsonWithGemini({ view: key as any })
+        console.log(`[Moodboard] Pose JSON for ${label}:`, poseJson.slice(0, 200) + '...')
+        // Combine garment/model JSON and pose JSON, add strong output requirements
+        const combinedPromptObj = {
+          ...JSON.parse(garmentModelJson),
+          ...JSON.parse(poseJson),
+          output_requirements: {
+            single_image: true,
+            single_model: true,
+            no_collage: true,
+            no_multiple_people: true,
+            no_extra_items: true,
+            no_reflections: true,
+            no_text: true,
+            no_watermarks: true,
+            no_logos: true,
+            no_distortions: true
+          }
+        }
+        const combinedPrompt = JSON.stringify(combinedPromptObj)
+        console.log(`[Moodboard] Combined JSON prompt for ${label}:`, combinedPrompt.slice(0, 200) + '...')
+        // Pass the combined JSON prompt as the main prompt to Replicate
+        // For the first image, use stitchedBuffer; for others, use previous generated image
+        let inputBuffer = previousImageBuffer
+        let url
+        if (i === 0) {
+          url = await generateWithReplicate(combinedPrompt, negativePrompt, inputBuffer)
+        } else {
+          // Download the previous image and use as buffer
+          const prevRes = await fetch(moodboard[i-1].url)
+          const prevArrayBuffer = await prevRes.arrayBuffer()
+          inputBuffer = Buffer.from(prevArrayBuffer)
+          url = await generateWithReplicate(combinedPrompt, negativePrompt, inputBuffer)
+        }
+        console.log(`[Moodboard] Replicate output for ${label}:`, url)
+        moodboard.push({ label, url })
+        previousImageBuffer = inputBuffer // For clarity, though not used after first
+      }
+      return NextResponse.json({ success: true, moodboard, timestamp: new Date().toISOString() })
+    }
+    // Otherwise, single-image flow (Lifestyle or fallback)
+    const outputUrl = await generateWithReplicate(basePrompt, negativePrompt, stitchedBuffer)
     return NextResponse.json({ success: true, imageUrl: outputUrl, timestamp: new Date().toISOString() })
   } catch (error: any) {
     console.error('Error in generate API route:', error)
