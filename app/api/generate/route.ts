@@ -95,7 +95,7 @@ function determineGenderPrompt(modelIdentity: string) {
   return "A single professional fashion model dressed in the outfit from the layout image, realistic body and posture, clean studio setup."
 }
 
-async function generateWithReplicate(basePrompt: string, negativePrompt: string, imageBuffer: Buffer) {
+export async function generateWithReplicate(basePrompt: string, negativePrompt: string, imageBuffer: Buffer) {
   const replicate = new Replicate({ auth: REPLICATE_API_KEY });
   const base64 = imageBuffer.toString('base64');
   const dataURI = `data:image/jpeg;base64,${base64}`;

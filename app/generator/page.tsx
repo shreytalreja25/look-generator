@@ -22,6 +22,10 @@ export default function GeneratorPage() {
   const [generatedMoodboard, setGeneratedMoodboard] = useState<null | { label: string; url: string }[]>(null)
   const [error, setError] = useState<string | null>(null)
   const [nightImage, setNightImage] = useState<string | null>(null)
+  const [selectedEditIndex, setSelectedEditIndex] = useState<number | null>(null)
+  const [editPrompt, setEditPrompt] = useState('')
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedFlags, setEditedFlags] = useState([false, false, false, false])
 
   // Step navigation
   const nextStep = () => setStepIndex((i) => Math.min(i + 1, steps.length - 1))
@@ -34,6 +38,10 @@ export default function GeneratorPage() {
     setClothingItems([])
     setSelectedModel(null)
     setNightImage(null)
+    setSelectedEditIndex(null)
+    setEditPrompt('')
+    setIsEditing(false)
+    setEditedFlags([false, false, false, false])
   }
 
   // Handlers
@@ -239,16 +247,75 @@ export default function GeneratorPage() {
             <h2 className="text-2xl font-bold mb-6 text-center">🖼️ Studio Moodboard</h2>
             <div className="flex flex-row gap-6 w-full justify-center mb-6">
               {generatedMoodboard.map((item, idx) => (
-                <div key={idx} className="flex flex-col items-center">
+                <div key={idx} className="relative flex flex-col items-center">
                   <img
                     src={item.url}
                     alt={item.label}
-                    className="w-48 h-64 object-cover rounded-lg shadow-lg mb-2 border border-gray-200"
+                    className={`w-48 h-64 object-cover rounded-lg shadow-lg mb-2 border ${selectedEditIndex === idx ? 'border-blue-500 border-4' : 'border-gray-200'} cursor-pointer`}
                     style={{ animation: 'fadeIn 1s' }}
+                    onClick={() => setSelectedEditIndex(idx)}
                   />
+                  {editedFlags[idx] && (
+                    <span className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded transition-opacity duration-500 opacity-100 animate-fade-out">Edited</span>
+                  )}
                   <span className="text-base font-medium text-gray-700 mt-1">{item.label}</span>
                 </div>
               ))}
+            </div>
+            <div className="flex flex-col items-center gap-2 mb-4">
+              <input
+                type="text"
+                className="w-96 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+                placeholder="Describe a change to apply (e.g. 'make hair curly', 'add nose ring')"
+                value={editPrompt}
+                onChange={e => setEditPrompt(e.target.value)}
+                disabled={isEditing}
+              />
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+                disabled={selectedEditIndex === null || !editPrompt.trim() || isEditing}
+                onClick={async () => {
+                  if (selectedEditIndex === null || !editPrompt.trim()) return
+                  setIsEditing(true)
+                  try {
+                    const res = await fetch('/api/edit-image', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        imageUrl: generatedMoodboard[selectedEditIndex].url,
+                        editPrompt
+                      })
+                    })
+                    if (!res.ok) throw new Error('Failed to edit image')
+                    const data = await res.json()
+                    // Replace the selected image in the moodboard
+                    const newMoodboard = [...generatedMoodboard]
+                    newMoodboard[selectedEditIndex] = { ...newMoodboard[selectedEditIndex], url: data.editedUrl }
+                    setGeneratedMoodboard(newMoodboard)
+                    // Mark as edited
+                    const newFlags = [...editedFlags]
+                    newFlags[selectedEditIndex] = true
+                    setEditedFlags(newFlags)
+                    // Clear prompt and selection
+                    setEditPrompt('')
+                    setSelectedEditIndex(null)
+                    // Add a timer to clear the edited flag after 1 second
+                    setTimeout(() => {
+                      setEditedFlags(flags => {
+                        const updated = [...flags]
+                        updated[selectedEditIndex] = false
+                        return updated
+                      })
+                    }, 1000)
+                  } catch (err) {
+                    alert('Failed to edit image')
+                  } finally {
+                    setIsEditing(false)
+                  }
+                }}
+              >
+                {isEditing ? 'Applying...' : 'Apply Change'}
+              </button>
             </div>
             <div className="flex gap-4 mt-4">
               {generatedMoodboard.map((item, idx) => (
