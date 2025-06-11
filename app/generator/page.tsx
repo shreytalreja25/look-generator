@@ -12,6 +12,276 @@ const steps = [
   { label: 'Review & Generate' },
 ]
 
+const LIFESTYLE_CAMERA_ANGLES = [
+  {
+    label: 'Motion Blur',
+    value: 'motion_blur',
+    json: {
+      "prompt": "Transform the subject's environment to create a dynamic motion blur effect. Keep the subject sharp and in focus while adding horizontal motion blur to the background and surrounding elements. Maintain the subject's original pose, facial features, clothing, and body position exactly as they appear in the input image.",
+      "effect_transformation": {
+        "blur_type": "horizontal motion blur",
+        "subject_focus": "keep main subject completely sharp and clear",
+        "background_blur": "strong horizontal streaking motion blur",
+        "surrounding_elements": "add ghostly motion trails to people or objects in background",
+        "blur_intensity": "medium to strong blur suggesting movement",
+        "blur_direction": "primarily horizontal with some diagonal elements"
+      },
+      "preserve_elements": {
+        "subject_appearance": "exact same face, clothing, pose, and body position",
+        "subject_lighting": "maintain original lighting on the main subject",
+        "subject_sharpness": "keep subject completely in focus",
+        "composition": "same framing and subject placement"
+      },
+      "output_requirements": {
+        "dynamic_feel": true,
+        "speed_suggestion": "convey sense of movement and energy",
+        "focus_contrast": "sharp subject against blurred environment",
+        "realistic_motion_blur": "natural-looking motion streaks"
+      }
+    }
+  },
+  {
+    label: 'Low Angle',
+    value: 'low_angle',
+    json: {
+      "prompt": "Reframe the image from a low angle perspective, shooting upward at the subject. Maintain the subject's exact appearance, clothing, and facial features while changing only the camera angle to create a powerful, dramatic low-angle view.",
+      "camera_transformation": {
+        "angle": "low angle looking upward at subject",
+        "perspective": "ground-level or below eye-level viewpoint",
+        "subject_positioning": "subject appears above camera level",
+        "dramatic_effect": "emphasize subject's presence and stature",
+        "horizon_line": "place horizon low in frame or below subject"
+      },
+      "preserve_elements": {
+        "subject_identity": "exact same person, face, and features",
+        "clothing": "identical outfit and styling",
+        "lighting_quality": "maintain similar lighting conditions",
+        "subject_pose": "same body position and gesture"
+      },
+      "output_requirements": {
+        "powerful_composition": true,
+        "upward_perspective": "clear low-angle viewpoint",
+        "dramatic_impact": "subject appears commanding and prominent",
+        "realistic_proportions": "natural low-angle perspective distortion"
+      }
+    }
+  },
+  {
+    label: 'Eye Level',
+    value: 'eye_level',
+    json: {
+      "prompt": "Reframe the image at eye level, positioning the camera at the same height as the subject's eyes. Maintain the subject's exact appearance, clothing, and features while creating a natural, straight-on perspective that feels balanced and approachable.",
+      "camera_transformation": {
+        "angle": "eye level, horizontal camera position",
+        "perspective": "camera at same height as subject's eye line",
+        "viewpoint": "straight-on, neither looking up nor down",
+        "balance": "equal visual weight and natural proportions",
+        "horizon_placement": "align with subject's eye level"
+      },
+      "preserve_elements": {
+        "subject_identity": "exact same person and facial features",
+        "clothing": "identical outfit and styling",
+        "lighting": "maintain original lighting conditions",
+        "pose": "same body position and stance"
+      },
+      "output_requirements": {
+        "natural_perspective": true,
+        "balanced_composition": "harmonious and approachable feel",
+        "neutral_angle": "no dramatic perspective distortion",
+        "realistic_proportions": "natural human proportions maintained"
+      }
+    }
+  },
+  {
+    label: 'Framed Shot',
+    value: 'framed_shot',
+    json: {
+      "prompt": "Create a framed composition using architectural elements, natural features, or environmental objects to frame the subject. Maintain the subject's exact appearance, clothing, and features while adding framing elements that draw focus to the subject within the scene.",
+      "framing_transformation": {
+        "frame_elements": "architectural arches, doorways, windows, or natural elements",
+        "frame_placement": "surround or partially surround the subject",
+        "depth_layers": "create foreground framing with subject in middle ground",
+        "focus_direction": "frame elements guide eye toward subject",
+        "frame_style": "natural, architectural, or environmental framing"
+      },
+      "preserve_elements": {
+        "subject_identity": "exact same person and facial features",
+        "clothing": "identical outfit and styling",
+        "subject_pose": "same body position and stance",
+        "subject_lighting": "maintain lighting on the main subject"
+      },
+      "output_requirements": {
+        "compositional_depth": true,
+        "clear_framing": "obvious framing elements around subject",
+        "subject_prominence": "subject remains the clear focal point",
+        "natural_integration": "framing elements feel organic to the scene"
+      }
+    }
+  }
+]
+const LIFESTYLE_LIGHTING = [
+  {
+    label: 'Golden Hour Sunset Lighting',
+    value: 'golden_hour',
+    json: {
+      "prompt": "Transform the lighting to golden hour sunset conditions. Keep the subject's face, pose, hairstyle, body, and clothing exactly the same. Only change the lighting and atmosphere.",
+      "lighting_transfer": {
+        "target_lighting": {
+          "type": "golden hour sunset lighting",
+          "color_temperature": "warm golden orange (2500K-3000K)",
+          "direction": "soft directional light from the side",
+          "intensity": "medium with gentle shadows",
+          "ambient_light": "warm golden glow",
+          "shadow_quality": "soft and elongated",
+          "highlights": "warm golden on fabric texture and skin",
+          "background_lighting": "warm atmospheric haze"
+        },
+        "preserve_elements": {
+          "subject_identity": true,
+          "pose": true,
+          "clothing": "exact same garments with same fit and texture",
+          "facial_expression": true,
+          "body_proportions": true
+        }
+      },
+      "output_requirements": {
+        "lighting_only_change": true,
+        "realistic_light_interaction": "golden light reflecting on clothing fabric",
+        "maintain_original_colors": "all clothing colors with warm golden highlights",
+        "atmospheric_consistency": true
+      }
+    }
+  },
+  {
+    label: 'Cool Blue Twilight Lighting',
+    value: 'cool_blue',
+    json: {
+      "prompt": "Transform the lighting to cool blue evening twilight conditions. Keep the subject's face, pose, hairstyle, body, and clothing exactly the same. Only change the lighting and color temperature.",
+      "lighting_transfer": {
+        "target_lighting": {
+          "type": "cool blue twilight lighting",
+          "color_temperature": "cool blue (5500K-7000K)",
+          "direction": "soft even lighting from above",
+          "intensity": "medium with subtle shadows",
+          "ambient_light": "cool blue atmospheric light",
+          "shadow_quality": "soft and cool-toned",
+          "highlights": "cool blue highlights on fabric and skin",
+          "background_lighting": "dusky blue evening atmosphere"
+        },
+        "preserve_elements": {
+          "subject_identity": true,
+          "pose": true,
+          "clothing": "exact same garments with same fit and texture",
+          "facial_expression": true,
+          "body_proportions": true
+        }
+      },
+      "output_requirements": {
+        "lighting_only_change": true,
+        "realistic_light_interaction": "cool blue light reflecting on clothing fabric",
+        "maintain_original_colors": "all clothing colors with cool blue highlights",
+        "atmospheric_consistency": true
+      }
+    }
+  },
+  {
+    label: 'Dramatic Studio Lighting',
+    value: 'dramatic_studio',
+    json: {
+      "prompt": "Transform the lighting to dramatic studio lighting with strong directional shadows. Keep the subject's face, pose, hairstyle, body, and clothing exactly the same. Only change the lighting setup.",
+      "lighting_transfer": {
+        "target_lighting": {
+          "type": "dramatic studio lighting",
+          "color_temperature": "neutral white (4000K-5000K)",
+          "direction": "strong directional light from 45-degree angle",
+          "intensity": "high contrast with deep shadows",
+          "ambient_light": "minimal fill light",
+          "shadow_quality": "sharp and defined",
+          "highlights": "bright highlights on fabric texture",
+          "background_lighting": "gradient from light to dark"
+        },
+        "preserve_elements": {
+          "subject_identity": true,
+          "pose": true,
+          "clothing": "exact same garments with same fit and texture",
+          "facial_expression": true,
+          "body_proportions": true
+        }
+      },
+      "output_requirements": {
+        "lighting_only_change": true,
+        "realistic_light_interaction": "dramatic shadows and highlights on clothing",
+        "maintain_original_colors": "all clothing colors with enhanced contrast",
+        "professional_studio_quality": true
+      }
+    }
+  },
+  {
+    label: 'Soft Natural Window Lighting',
+    value: 'soft_natural',
+    json: {
+      "prompt": "Transform the lighting to soft natural window lighting. Keep the subject's face, pose, hairstyle, body, and clothing exactly the same. Only change to gentle indoor natural light.",
+      "lighting_transfer": {
+        "target_lighting": {
+          "type": "soft natural window lighting",
+          "color_temperature": "daylight balanced (5000K-6000K)",
+          "direction": "soft diffused light from the side",
+          "intensity": "gentle and even",
+          "ambient_light": "soft reflected light",
+          "shadow_quality": "very soft and gradual",
+          "highlights": "gentle natural highlights",
+          "background_lighting": "soft indoor ambient light"
+        },
+        "preserve_elements": {
+          "subject_identity": true,
+          "pose": true,
+          "clothing": "exact same garments with same fit and texture",
+          "facial_expression": true,
+          "body_proportions": true
+        }
+      },
+      "output_requirements": {
+        "lighting_only_change": true,
+        "realistic_light_interaction": "soft natural light on clothing fabric",
+        "maintain_original_colors": "all clothing colors with natural daylight rendering",
+        "indoor_lighting_quality": true
+      }
+    }
+  },
+  {
+    label: 'Moody Low-Key Lighting',
+    value: 'moody_low_key',
+    json: {
+      "prompt": "Transform the lighting to moody low-key dramatic lighting. Keep the subject's face, pose, hairstyle, body, and clothing exactly the same. Only change to dark atmospheric lighting.",
+      "lighting_transfer": {
+        "target_lighting": {
+          "type": "moody low-key lighting",
+          "color_temperature": "slightly warm (3500K-4000K)",
+          "direction": "dramatic rim lighting from behind/side",
+          "intensity": "low overall with selective bright spots",
+          "ambient_light": "very dark with minimal fill",
+          "shadow_quality": "deep shadows with mystery",
+          "highlights": "selective bright rim lighting on edges",
+          "background_lighting": "dark moody atmosphere"
+        },
+        "preserve_elements": {
+          "subject_identity": true,
+          "pose": true,
+          "clothing": "exact same garments with same fit and texture",
+          "facial_expression": true,
+          "body_proportions": true
+        }
+      },
+      "output_requirements": {
+        "lighting_only_change": true,
+        "realistic_light_interaction": "dramatic rim lighting on clothing edges",
+        "maintain_original_colors": "all clothing colors visible in selective lighting",
+        "cinematic_mood": true
+      }
+    }
+  }
+]
+
 export default function GeneratorPage() {
   const [clothingItems, setClothingItems] = useState<ClothingItem[]>([])
   const [selectedModel, setSelectedModel] = useState<ModelReference | null>(null)
@@ -26,6 +296,11 @@ export default function GeneratorPage() {
   const [editPrompt, setEditPrompt] = useState('')
   const [isEditing, setIsEditing] = useState(false)
   const [editedFlags, setEditedFlags] = useState([false, false, false, false])
+  const [selectedLifestyleIndex, setSelectedLifestyleIndex] = useState<number | null>(null)
+  const [lifestyleEditType, setLifestyleEditType] = useState<string>('')
+  const [lifestyleEditOption, setLifestyleEditOption] = useState<string>('')
+  const [lifestyleEditPrompt, setLifestyleEditPrompt] = useState('')
+  const [isLifestyleEditing, setIsLifestyleEditing] = useState(false)
 
   // Step navigation
   const nextStep = () => setStepIndex((i) => Math.min(i + 1, steps.length - 1))
@@ -42,6 +317,11 @@ export default function GeneratorPage() {
     setEditPrompt('')
     setIsEditing(false)
     setEditedFlags([false, false, false, false])
+    setSelectedLifestyleIndex(null)
+    setLifestyleEditType('')
+    setLifestyleEditOption('')
+    setLifestyleEditPrompt('')
+    setIsLifestyleEditing(false)
   }
 
   // Handlers
@@ -263,59 +543,175 @@ export default function GeneratorPage() {
               ))}
             </div>
             <div className="flex flex-col items-center gap-2 mb-4">
-              <input
-                type="text"
-                className="w-96 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-                placeholder="Describe a change to apply (e.g. 'make hair curly', 'add nose ring')"
-                value={editPrompt}
-                onChange={e => setEditPrompt(e.target.value)}
-                disabled={isEditing}
-              />
-              <button
-                className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
-                disabled={selectedEditIndex === null || !editPrompt.trim() || isEditing}
-                onClick={async () => {
-                  if (selectedEditIndex === null || !editPrompt.trim()) return
-                  setIsEditing(true)
-                  try {
-                    const res = await fetch('/api/edit-image', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        imageUrl: generatedMoodboard[selectedEditIndex].url,
-                        editPrompt
-                      })
-                    })
-                    if (!res.ok) throw new Error('Failed to edit image')
-                    const data = await res.json()
-                    // Replace the selected image in the moodboard
-                    const newMoodboard = [...generatedMoodboard]
-                    newMoodboard[selectedEditIndex] = { ...newMoodboard[selectedEditIndex], url: data.editedUrl }
-                    setGeneratedMoodboard(newMoodboard)
-                    // Mark as edited
-                    const newFlags = [...editedFlags]
-                    newFlags[selectedEditIndex] = true
-                    setEditedFlags(newFlags)
-                    // Clear prompt and selection
-                    setEditPrompt('')
-                    setSelectedEditIndex(null)
-                    // Add a timer to clear the edited flag after 1 second
-                    setTimeout(() => {
-                      setEditedFlags(flags => {
-                        const updated = [...flags]
-                        updated[selectedEditIndex] = false
-                        return updated
-                      })
-                    }, 1000)
-                  } catch (err) {
-                    alert('Failed to edit image')
-                  } finally {
-                    setIsEditing(false)
-                  }
-                }}
-              >
-                {isEditing ? 'Applying...' : 'Apply Change'}
-              </button>
+              {backgroundStyle === 'lifestyle' ? (
+                <>
+                  <div className="flex flex-row gap-4 mb-2">
+                    <button
+                      className={`px-4 py-2 rounded ${lifestyleEditType === 'camera' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                      onClick={() => { setLifestyleEditType('camera'); setLifestyleEditOption(''); setLifestyleEditPrompt(''); }}
+                    >
+                      Edit Camera Angle
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${lifestyleEditType === 'lighting' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                      onClick={() => { setLifestyleEditType('lighting'); setLifestyleEditOption(''); setLifestyleEditPrompt(''); }}
+                    >
+                      Edit Lighting
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${lifestyleEditType === 'prompt' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                      onClick={() => { setLifestyleEditType('prompt'); setLifestyleEditOption(''); setLifestyleEditPrompt(''); }}
+                    >
+                      Edit with Prompt
+                    </button>
+                  </div>
+                  {lifestyleEditType === 'camera' && (
+                    <select
+                      className="w-80 px-3 py-2 border rounded mb-2"
+                      value={lifestyleEditOption}
+                      onChange={e => setLifestyleEditOption(e.target.value)}
+                    >
+                      <option value="">Select Camera Angle</option>
+                      {LIFESTYLE_CAMERA_ANGLES.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  )}
+                  {lifestyleEditType === 'lighting' && (
+                    <select
+                      className="w-80 px-3 py-2 border rounded mb-2"
+                      value={lifestyleEditOption}
+                      onChange={e => setLifestyleEditOption(e.target.value)}
+                    >
+                      <option value="">Select Lighting</option>
+                      {LIFESTYLE_LIGHTING.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  )}
+                  {lifestyleEditType === 'prompt' && (
+                    <input
+                      type="text"
+                      className="w-80 px-3 py-2 border rounded mb-2"
+                      placeholder="Describe a change to apply (e.g. 'make hair curly', 'add nose ring')"
+                      value={lifestyleEditPrompt}
+                      onChange={e => setLifestyleEditPrompt(e.target.value)}
+                    />
+                  )}
+                  <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+                    disabled={selectedEditIndex === null || isLifestyleEditing ||
+                      (lifestyleEditType === 'camera' && !lifestyleEditOption) ||
+                      (lifestyleEditType === 'lighting' && !lifestyleEditOption) ||
+                      (lifestyleEditType === 'prompt' && !lifestyleEditPrompt.trim())}
+                    onClick={async () => {
+                      if (selectedEditIndex === null) return;
+                      setIsLifestyleEditing(true);
+                      let editPayload: any = { imageUrl: generatedMoodboard[selectedEditIndex].url };
+                      if (lifestyleEditType === 'camera') {
+                        const json = LIFESTYLE_CAMERA_ANGLES.find(opt => opt.value === lifestyleEditOption)?.json;
+                        editPayload = { ...editPayload, editJson: json };
+                      } else if (lifestyleEditType === 'lighting') {
+                        const json = LIFESTYLE_LIGHTING.find(opt => opt.value === lifestyleEditOption)?.json;
+                        editPayload = { ...editPayload, editJson: json };
+                      } else if (lifestyleEditType === 'prompt') {
+                        editPayload = { ...editPayload, editPrompt: lifestyleEditPrompt };
+                      }
+                      try {
+                        const res = await fetch('/api/edit-image', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(editPayload)
+                        });
+                        if (!res.ok) throw new Error('Failed to edit image');
+                        const data = await res.json();
+                        // Replace the selected image in the moodboard
+                        const newMoodboard = [...generatedMoodboard];
+                        newMoodboard[selectedEditIndex] = { ...newMoodboard[selectedEditIndex], url: data.editedUrl };
+                        setGeneratedMoodboard(newMoodboard);
+                        // Mark as edited
+                        const newFlags = [...editedFlags];
+                        newFlags[selectedEditIndex] = true;
+                        setEditedFlags(newFlags);
+                        // Clear selection
+                        setLifestyleEditType('');
+                        setLifestyleEditOption('');
+                        setLifestyleEditPrompt('');
+                        setSelectedEditIndex(null);
+                        setTimeout(() => {
+                          setEditedFlags(flags => {
+                            const updated = [...flags];
+                            updated[selectedEditIndex] = false;
+                            return updated;
+                          });
+                        }, 1000);
+                      } catch (err) {
+                        alert('Failed to edit image');
+                      } finally {
+                        setIsLifestyleEditing(false);
+                      }
+                    }}
+                  >
+                    {isLifestyleEditing ? 'Applying...' : 'Apply Change'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    className="w-96 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    placeholder="Describe a change to apply (e.g. 'make hair curly', 'add nose ring')"
+                    value={editPrompt}
+                    onChange={e => setEditPrompt(e.target.value)}
+                    disabled={isEditing}
+                  />
+                  <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+                    disabled={selectedEditIndex === null || !editPrompt.trim() || isEditing}
+                    onClick={async () => {
+                      if (selectedEditIndex === null || !editPrompt.trim()) return
+                      setIsEditing(true)
+                      try {
+                        const res = await fetch('/api/edit-image', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            imageUrl: generatedMoodboard[selectedEditIndex].url,
+                            editPrompt
+                          })
+                        })
+                        if (!res.ok) throw new Error('Failed to edit image')
+                        const data = await res.json()
+                        // Replace the selected image in the moodboard
+                        const newMoodboard = [...generatedMoodboard]
+                        newMoodboard[selectedEditIndex] = { ...newMoodboard[selectedEditIndex], url: data.editedUrl }
+                        setGeneratedMoodboard(newMoodboard)
+                        // Mark as edited
+                        const newFlags = [...editedFlags]
+                        newFlags[selectedEditIndex] = true
+                        setEditedFlags(newFlags)
+                        // Clear prompt and selection
+                        setEditPrompt('')
+                        setSelectedEditIndex(null)
+                        // Add a timer to clear the edited flag after 1 second
+                        setTimeout(() => {
+                          setEditedFlags(flags => {
+                            const updated = [...flags]
+                            updated[selectedEditIndex] = false
+                            return updated
+                          })
+                        }, 1000)
+                      } catch (err) {
+                        alert('Failed to edit image')
+                      } finally {
+                        setIsEditing(false)
+                      }
+                    }}
+                  >
+                    {isEditing ? 'Applying...' : 'Apply Change'}
+                  </button>
+                </>
+              )}
             </div>
             <div className="flex gap-4 mt-4">
               {generatedMoodboard.map((item, idx) => (
