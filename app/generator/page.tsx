@@ -21,6 +21,7 @@ export default function GeneratorPage() {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [generatedMoodboard, setGeneratedMoodboard] = useState<null | { label: string; url: string }[]>(null)
   const [error, setError] = useState<string | null>(null)
+  const [nightImage, setNightImage] = useState<string | null>(null)
 
   // Step navigation
   const nextStep = () => setStepIndex((i) => Math.min(i + 1, steps.length - 1))
@@ -32,6 +33,7 @@ export default function GeneratorPage() {
     setError(null)
     setClothingItems([])
     setSelectedModel(null)
+    setNightImage(null)
   }
 
   // Handlers
@@ -52,6 +54,7 @@ export default function GeneratorPage() {
     setError(null)
     setGeneratedImage(null)
     setGeneratedMoodboard(null)
+    setNightImage(null)
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
@@ -63,8 +66,10 @@ export default function GeneratorPage() {
       if (data.moodboard) {
         setGeneratedMoodboard(data.moodboard)
         setGeneratedImage(null)
+        setNightImage(null)
       } else {
         setGeneratedImage(data.imageUrl)
+        setNightImage(data.nightImageUrl || null)
         setGeneratedMoodboard(null)
       }
     } catch (err) {
@@ -273,22 +278,64 @@ export default function GeneratorPage() {
         ) : (
           <div className="bg-white rounded-lg shadow-sm p-8 flex flex-col items-center animate-fade-in">
             <h2 className="text-2xl font-bold mb-6 text-center">🖼️ Generated Look</h2>
-            <img
-              src={generatedImage}
-              alt="Generated Look"
-              className="w-full max-w-md rounded-lg shadow-lg mb-6 transition-opacity duration-700 opacity-100"
-              style={{ animation: 'fadeIn 1s' }}
-            />
+            {backgroundStyle === 'lifestyle' && generatedImage && nightImage ? (
+              <div className="flex flex-col md:flex-row gap-8 w-full justify-center mb-6">
+                <div className="flex flex-col items-center">
+                  <img
+                    src={generatedImage}
+                    alt="Lifestyle Day Look"
+                    className="w-72 h-96 object-cover rounded-lg shadow-lg mb-2 border border-gray-200"
+                    style={{ animation: 'fadeIn 1s' }}
+                  />
+                  <span className="text-base font-medium text-gray-700 mt-1">Day Lighting</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <img
+                    src={nightImage}
+                    alt="Lifestyle Night Look"
+                    className="w-72 h-96 object-cover rounded-lg shadow-lg mb-2 border border-gray-200"
+                    style={{ animation: 'fadeIn 1s' }}
+                  />
+                  <span className="text-base font-medium text-gray-700 mt-1">Night Lighting</span>
+                </div>
+              </div>
+            ) : (
+              <img
+                src={generatedImage}
+                alt="Generated Look"
+                className="w-full max-w-md rounded-lg shadow-lg mb-6 transition-opacity duration-700 opacity-100"
+                style={{ animation: 'fadeIn 1s' }}
+              />
+            )}
             <div className="flex gap-4 mt-4">
-              <a
-                href={generatedImage}
-                download="generated-look.jpg"
-                className="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" /> Download
-              </a>
+              {backgroundStyle === 'lifestyle' && generatedImage && nightImage ? (
+                <>
+                  <a
+                    href={generatedImage}
+                    download="lifestyle-day-look.jpg"
+                    className="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" /> Download Day
+                  </a>
+                  <a
+                    href={nightImage}
+                    download="lifestyle-night-look.jpg"
+                    className="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" /> Download Night
+                  </a>
+                </>
+              ) : (
+                <a
+                  href={generatedImage}
+                  download="generated-look.jpg"
+                  className="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" /> Download
+                </a>
+              )}
               <button
-                onClick={() => { setGeneratedImage(null); setError(null); }}
+                onClick={() => { setGeneratedImage(null); setNightImage(null); setError(null); }}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg flex items-center gap-2"
               >
                 <RotateCcw className="w-4 h-4" /> Try Again
