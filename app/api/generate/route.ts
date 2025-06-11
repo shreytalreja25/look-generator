@@ -103,7 +103,8 @@ async function generateWithReplicate(basePrompt: string, negativePrompt: string,
     prompt: basePrompt,
     negative_prompt: negativePrompt,
     input_image: dataURI,
-    output_format: "jpg"
+    output_format: "jpg",
+    safety_tolerance: 6
   };
   const output = await replicate.run("black-forest-labs/flux-kontext-pro", { input });
   console.log('Replicate outputUrl:', output);
