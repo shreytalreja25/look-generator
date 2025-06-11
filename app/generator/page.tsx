@@ -372,7 +372,7 @@ export default function GeneratorPage() {
   if (stepIndex === 0) {
     // Step 1: Garments
     content = (
-      <div className="max-w-xl mx-auto">
+      <div className="max-w-4xl mx-auto w-full">
         <ClothingUploader
           step="garments"
           onItemsChange={handleItemsChange}
@@ -392,7 +392,7 @@ export default function GeneratorPage() {
   } else if (stepIndex === 1) {
     // Step 2: Accessories
     content = (
-      <div className="max-w-xl mx-auto">
+      <div className="max-w-4xl mx-auto w-full">
         <ClothingUploader
           step="accessories"
           onItemsChange={handleItemsChange}
@@ -419,7 +419,7 @@ export default function GeneratorPage() {
   } else if (stepIndex === 2) {
     // Step 3: Model
     content = (
-      <div className="max-w-xl mx-auto">
+      <div className="max-w-4xl mx-auto w-full">
         <ClothingUploader
           step="model"
           onItemsChange={() => {}}
@@ -447,9 +447,9 @@ export default function GeneratorPage() {
   } else if (stepIndex === 3) {
     // Step 4: Review & Generate
     content = (
-      <div className="max-w-2xl mx-auto w-full">
+      <div className="max-w-5xl mx-auto w-full">
         {!generatedImage && !generatedMoodboard ? (
-          <div className="bg-white rounded-lg shadow-sm p-8 animate-fade-in">
+          <div className="bg-white rounded-lg shadow-sm p-8 w-full max-w-4xl animate-fade-in">
             <h2 className="text-2xl font-bold mb-6 text-center">Review & Generate</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div>
@@ -523,15 +523,15 @@ export default function GeneratorPage() {
             </button>
           </div>
         ) : generatedMoodboard ? (
-          <div className="bg-white rounded-lg shadow-sm p-8 flex flex-col items-center animate-fade-in">
+          <div className="bg-white rounded-lg shadow-sm p-8 w-full max-w-6xl flex flex-col items-center animate-fade-in">
             <h2 className="text-2xl font-bold mb-6 text-center">🖼️ Studio Moodboard</h2>
-            <div className="flex flex-row gap-6 w-full justify-center mb-6">
+            <div className="flex flex-row gap-8 w-full justify-center mb-6 overflow-x-auto max-w-full">
               {generatedMoodboard.map((item, idx) => (
-                <div key={idx} className="relative flex flex-col items-center">
+                <div key={idx} className="relative flex flex-col items-center flex-grow min-w-0">
                   <img
                     src={item.url}
                     alt={item.label}
-                    className={`w-48 h-64 object-cover rounded-lg shadow-lg mb-2 border ${selectedEditIndex === idx ? 'border-blue-500 border-4' : 'border-gray-200'} cursor-pointer`}
+                    className={`w-full max-w-[22rem] object-contain bg-white rounded-lg shadow-lg mb-2 border ${selectedEditIndex === idx ? 'border-blue-500 border-4' : 'border-gray-200'} cursor-pointer`}
                     style={{ animation: 'fadeIn 1s' }}
                     onClick={() => setSelectedEditIndex(idx)}
                   />
@@ -719,7 +719,7 @@ export default function GeneratorPage() {
                   key={idx}
                   href={item.url}
                   download={`moodboard-${item.label.toLowerCase().replace(/\s/g, '-')}.jpg`}
-                  className="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg rounded-lg flex items-center gap-2 transition-colors duration-150"
                 >
                   <Download className="w-4 h-4" /> Download {item.label}
                 </a>
@@ -776,14 +776,14 @@ export default function GeneratorPage() {
                   <a
                     href={generatedImage}
                     download="lifestyle-day-look.jpg"
-                    className="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg rounded-lg flex items-center gap-2 transition-colors duration-150"
                   >
                     <Download className="w-4 h-4" /> Download Day
                   </a>
                   <a
                     href={nightImage}
                     download="lifestyle-night-look.jpg"
-                    className="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg rounded-lg flex items-center gap-2 transition-colors duration-150"
                   >
                     <Download className="w-4 h-4" /> Download Night
                   </a>
@@ -792,7 +792,7 @@ export default function GeneratorPage() {
                 <a
                   href={generatedImage}
                   download="generated-look.jpg"
-                  className="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg rounded-lg flex items-center gap-2 transition-colors duration-150"
                 >
                   <Download className="w-4 h-4" /> Download
                 </a>
@@ -817,7 +817,7 @@ export default function GeneratorPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="max-w-screen-xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8 text-center">Virtual Try-On Generator</h1>
       <div className="flex justify-center mb-8">
         <div className="flex gap-8">
