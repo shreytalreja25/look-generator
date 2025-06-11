@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ClothingItem, ModelReference } from '../../lib/image-utils'
 import ClothingUploader from '../components/ClothingUploader'
 import { Loader2, Download, RotateCcw, ArrowLeft } from 'lucide-react'
+import JSZip from 'jszip'
 
 const steps = [
   { label: 'Upload Garments' },
@@ -301,6 +302,7 @@ export default function GeneratorPage() {
   const [lifestyleEditOption, setLifestyleEditOption] = useState<string>('')
   const [lifestyleEditPrompt, setLifestyleEditPrompt] = useState('')
   const [isLifestyleEditing, setIsLifestyleEditing] = useState(false)
+  const [downloadDropdownOpen, setDownloadDropdownOpen] = useState(false)
 
   // Step navigation
   const nextStep = () => setStepIndex((i) => Math.min(i + 1, steps.length - 1))
@@ -713,28 +715,69 @@ export default function GeneratorPage() {
                 </>
               )}
             </div>
-            <div className="flex gap-4 mt-4">
-              {generatedMoodboard.map((item, idx) => (
-                <a
-                  key={idx}
-                  href={item.url}
-                  download={`moodboard-${item.label.toLowerCase().replace(/\s/g, '-')}.jpg`}
+            <div className="flex flex-row gap-4 mt-4 items-center">
+              <div className="relative">
+                <button
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg rounded-lg flex items-center gap-2 transition-colors duration-150"
+                  onClick={() => setDownloadDropdownOpen((open) => !open)}
                 >
-                  <Download className="w-4 h-4" /> Download {item.label}
-                </a>
-              ))}
+                  <Download className="w-5 h-5" /> Select & Download <span className="ml-2">▼</span>
+                </button>
+                {downloadDropdownOpen && (
+                  <div className="absolute left-0 mt-2 w-48 bg-white border rounded shadow-lg z-10">
+                    {generatedMoodboard.map((item, idx) => (
+                      <a
+                        key={idx}
+                        href={item.url}
+                        download={`moodboard-${item.label.toLowerCase().replace(/\s/g, '-')}.jpg`}
+                        className="block px-4 py-2 text-gray-800 hover:bg-blue-100 cursor-pointer"
+                        onClick={() => setDownloadDropdownOpen(false)}
+                      >
+                        Download {item.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
-                onClick={() => { setGeneratedMoodboard(null); setError(null); }}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg flex items-center gap-2"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg rounded-lg flex items-center gap-2 transition-colors duration-150"
+                onClick={async () => {
+                  if (!generatedMoodboard || generatedMoodboard.length === 0) return;
+                  try {
+                    const zip = new JSZip();
+                    const folder = zip.folder('StudioMoodboard') || zip;
+                    await Promise.all(
+                      generatedMoodboard.map(async (item, idx) => {
+                        const response = await fetch(item.url);
+                        const blob = await response.blob();
+                        folder.file(`moodboard-${item.label.toLowerCase().replace(/\s/g, '-')}.jpg`, blob);
+                      })
+                    );
+                    const content = await zip.generateAsync({ type: 'blob' });
+                    const url = URL.createObjectURL(content);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'StudioMoodboard.zip';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }, 100);
+                  } catch (err) {
+                    // fallback: trigger 4 downloads in sequence
+                    generatedMoodboard.forEach((item, idx) => {
+                      const a = document.createElement('a');
+                      a.href = item.url;
+                      a.download = `moodboard-${item.label.toLowerCase().replace(/\s/g, '-')}.jpg`;
+                      document.body.appendChild(a);
+                      a.click();
+                      setTimeout(() => document.body.removeChild(a), 100);
+                    });
+                  }
+                }}
               >
-                <RotateCcw className="w-4 h-4" /> Try Again
-              </button>
-              <button
-                onClick={resetAll}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg flex items-center gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" /> Go Back
+                <span className="material-icons">folder_zip</span> Download All
               </button>
             </div>
           </div>
