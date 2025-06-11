@@ -298,61 +298,65 @@ export async function POST(request: NextRequest) {
     // If Studio mode, generate moodboard (4 angles)
     if (backgroundStyle === 'studio') {
       console.log('[Moodboard] Gemini analysis complete. Model:', geminiJSON?.model?.identity)
-      // Step 1: Generate garment/model/accessory JSON once
       const garmentModelJson = await generateGarmentModelJsonWithGemini({ geminiJSON })
       console.log('[Moodboard] Garment/Model JSON:', garmentModelJson.slice(0, 200) + '...')
-      // Views for the storyboard
-      const views = [
-        { label: 'Front', key: 'Front' },
-        { label: 'Close-up', key: 'Close-up' },
-        { label: 'Back', key: 'Back' },
-        { label: 'Side', key: 'Side' },
-      ]
-      // Generate all images sequentially to preserve identity
-      const moodboard = []
-      let previousImageBuffer = stitchedBuffer // Start with stitched layout for the first image
-      for (let i = 0; i < views.length; i++) {
-        const { label, key } = views[i]
-        console.log(`[Moodboard] Generating pose JSON for: ${label}`)
-        const poseJson = await generatePoseJsonWithGemini({ view: key as any })
-        console.log(`[Moodboard] Pose JSON for ${label}:`, poseJson.slice(0, 200) + '...')
-        // Combine garment/model JSON and pose JSON, add strong output requirements
-        const combinedPromptObj = {
-          ...JSON.parse(garmentModelJson),
-          ...JSON.parse(poseJson),
-          output_requirements: {
-            single_image: true,
-            single_model: true,
-            no_collage: true,
-            no_multiple_people: true,
-            no_extra_items: true,
-            no_reflections: true,
-            no_text: true,
-            no_watermarks: true,
-            no_logos: true,
-            no_distortions: true
-          }
+
+      const moodboard: { label: string; url: string }[] = []
+
+      // ---- Front view ----
+      const frontPoseJson = await generatePoseJsonWithGemini({ view: 'Front' })
+      const frontPromptObj = {
+        ...JSON.parse(garmentModelJson),
+        ...JSON.parse(frontPoseJson),
+        output_requirements: {
+          single_image: true,
+          single_model: true,
+          no_collage: true,
+          no_multiple_people: true,
+          no_extra_items: true,
+          no_reflections: true,
+          no_text: true,
+          no_watermarks: true,
+          no_logos: true,
+          no_distortions: true
         }
-        const combinedPrompt = JSON.stringify(combinedPromptObj)
-        console.log(`[Moodboard] Combined JSON prompt for ${label}:`, combinedPrompt.slice(0, 200) + '...')
-        // Pass the combined JSON prompt as the main prompt to Replicate
-        // For the first image, use stitchedBuffer; for others, use previous generated image
-        let inputBuffer = previousImageBuffer
-        let url
-        if (i === 0) {
-          url = await generateWithReplicate(combinedPrompt, negativePrompt, inputBuffer)
-        } else {
-          // Download the previous image and use as buffer
-          const prevRes = await fetch(moodboard[i-1].url)
-          const prevArrayBuffer = await prevRes.arrayBuffer()
-          inputBuffer = Buffer.from(prevArrayBuffer)
-          url = await generateWithReplicate(combinedPrompt, negativePrompt, inputBuffer)
-        }
-        console.log(`[Moodboard] Replicate output for ${label}:`, url)
-        moodboard.push({ label, url })
-        previousImageBuffer = inputBuffer // For clarity, though not used after first
       }
-      return NextResponse.json({ success: true, moodboard, timestamp: new Date().toISOString() })
+      const frontPrompt = JSON.stringify(frontPromptObj)
+      const frontUrl = await generateWithReplicate(frontPrompt, negativePrompt, stitchedBuffer)
+      console.log('[Moodboard] Replicate output for Front:', frontUrl)
+      moodboard.push({ label: 'Front', url: frontUrl })
+
+      // Download front image for reference
+      const frontRes = await fetch(frontUrl)
+      const frontArrayBuffer = await frontRes.arrayBuffer()
+      const frontBuffer = Buffer.from(frontArrayBuffer)
+
+      // ---- Portrait, Back, Side views ----
+      const otherViews = [
+        { label: 'Close-up', instruction: 'Now show a close-up portrait of the same model from the shoulders up, face in focus. Keep lighting, outfit, and background identical.' },
+        { label: 'Back', instruction: 'Now show the model from behind (back view), with arms resting naturally. Keep the studio lighting, outfit, and visual style identical.' },
+        { label: 'Side', instruction: 'Now show the model in a right-facing side profile, arms relaxed. Keep the studio lighting, outfit, and visual style identical.' }
+      ] as const
+
+      for (const view of otherViews) {
+        const prompt = `${basePrompt} Generate a high-res studio photo of the same model and outfit as shown in the input image. ${view.instruction}`
+        const url = await generateWithReplicate(prompt, negativePrompt, frontBuffer)
+        console.log(`[Moodboard] Replicate output for ${view.label}:`, url)
+        moodboard.push({ label: view.label, url })
+      }
+
+      // Stitch final moodboard grid
+      const buffers = await Promise.all(
+        moodboard.map(async m => {
+          const res = await fetch(m.url)
+          const arr = await res.arrayBuffer()
+          return Buffer.from(arr)
+        })
+      )
+      const gridBuffer = await createGridLayoutFromBuffers(buffers)
+      const gridBase64 = `data:image/jpeg;base64,${gridBuffer.toString('base64')}`
+
+      return NextResponse.json({ success: true, moodboard, grid: gridBase64, timestamp: new Date().toISOString() })
     }
     // Otherwise, single-image flow (Lifestyle or fallback)
     const outputUrl = await generateWithReplicate(basePrompt, negativePrompt, stitchedBuffer)

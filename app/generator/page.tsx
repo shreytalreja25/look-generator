@@ -20,6 +20,7 @@ export default function GeneratorPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [generatedMoodboard, setGeneratedMoodboard] = useState<null | { label: string; url: string }[]>(null)
+  const [moodboardGrid, setMoodboardGrid] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Step navigation
@@ -32,6 +33,8 @@ export default function GeneratorPage() {
     setError(null)
     setClothingItems([])
     setSelectedModel(null)
+    setGeneratedMoodboard(null)
+    setMoodboardGrid(null)
   }
 
   // Handlers
@@ -62,10 +65,12 @@ export default function GeneratorPage() {
       const data = await response.json()
       if (data.moodboard) {
         setGeneratedMoodboard(data.moodboard)
+        setMoodboardGrid(data.grid)
         setGeneratedImage(null)
       } else {
         setGeneratedImage(data.imageUrl)
         setGeneratedMoodboard(null)
+        setMoodboardGrid(null)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -232,17 +237,17 @@ export default function GeneratorPage() {
         ) : generatedMoodboard ? (
           <div className="bg-white rounded-lg shadow-sm p-8 flex flex-col items-center animate-fade-in">
             <h2 className="text-2xl font-bold mb-6 text-center">🖼️ Studio Moodboard</h2>
-            <div className="flex flex-row gap-6 w-full justify-center mb-6">
+            {moodboardGrid && (
+              <img src={moodboardGrid} alt="Moodboard" className="w-full max-w-md rounded-lg shadow-lg mb-6" />
+            )}
+            <div className="grid grid-cols-2 gap-4 mb-6">
               {generatedMoodboard.map((item, idx) => (
-                <div key={idx} className="flex flex-col items-center">
-                  <img
-                    src={item.url}
-                    alt={item.label}
-                    className="w-48 h-64 object-cover rounded-lg shadow-lg mb-2 border border-gray-200"
-                    style={{ animation: 'fadeIn 1s' }}
-                  />
-                  <span className="text-base font-medium text-gray-700 mt-1">{item.label}</span>
-                </div>
+                <img
+                  key={idx}
+                  src={item.url}
+                  alt={item.label}
+                  className="w-full h-56 object-cover rounded-lg border border-gray-200"
+                />
               ))}
             </div>
             <div className="flex gap-4 mt-4">
@@ -257,7 +262,7 @@ export default function GeneratorPage() {
                 </a>
               ))}
               <button
-                onClick={() => { setGeneratedMoodboard(null); setError(null); }}
+                onClick={() => { setGeneratedMoodboard(null); setMoodboardGrid(null); setError(null); }}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg flex items-center gap-2"
               >
                 <RotateCcw className="w-4 h-4" /> Try Again
